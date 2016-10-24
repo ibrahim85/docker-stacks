@@ -12,7 +12,7 @@ RUN apt-get update && \
 
 # Install conda
 RUN echo 'export PATH=$CONDA_DIR/bin:$PATH' > /etc/profile.d/conda.sh && \
-    wget --quiet hhttps://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+    wget --quiet https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
     /bin/bash /Miniconda3-latest-Linux-x86_64.sh -b -p $CONDA_DIR && \
     rm Miniconda3-latest-Linux-x86_64.sh && \
     $CONDA_DIR/bin/conda install --yes conda==4.2.9
@@ -66,14 +66,21 @@ ENV SPARK_OPTS --driver-java-options=-Xms1024M --driver-java-options=-Xmx4096M -
 
 # Install useful Python packages
 
-RUN apt-get install -y libxrender1 fonts-dejavu && apt-get clean
-RUN conda create --yes -q -n python3.4-env python=3.4 nose numpy pandas scikit-learn scikit-image matplotlib scipy seaborn sympy cython patsy statsmodels cloudpickle numba bokeh pillow ipython jsonschema boto
+# RUN apt-get install -y libxrender1 && apt-get clean
+RUN apt-get -y update && \
+	apt-get install -y libxrender1 fonts-dejavu && \
+	apt-get clean
+#RUN conda create --yes -q -n python3.5-env python=3.5 nose numpy pandas scikit-learn scikit-image matplotlib scipy seaborn sympy cython patsy statsmodels cloudpickle numba bokeh pillow ipython jsonschema boto
+RUN conda install --yes nose numpy pandas scikit-learn scikit-image matplotlib scipy seaborn sympy cython patsy statsmodels cloudpickle numba bokeh pillow ipython jsonschema boto
+
 ENV PATH $CONDA_DIR/bin:$PATH
 RUN conda install --yes numpy pandas scikit-learn scikit-image matplotlib scipy seaborn sympy cython patsy statsmodels cloudpickle numba bokeh pillow && conda clean -yt
 RUN /bin/bash -c "pip install mistune"
 
 # Bolt setup
-RUN apt-get install -y git python-pip ipython gcc
+#RUN apt-get -y update && \
+#	apt-get install -y git python-pip ipython gcc && \
+#	apt-get clean
 RUN git clone https://github.com/bolt-project/bolt
 RUN /bin/bash -c "pip install -r bolt/requirements.txt"
 ENV BOLT_ROOT $HOME/bolt
@@ -86,8 +93,8 @@ ENV PYTHONPATH $PYTHONPATH:$BOLT_ROOT
 
 USER fourquant
 
-# Install Python 3 Tensorflow
-RUN conda install --quiet --yes 'tensorflow=0.9.0'
+# Install Python 3 Tensorflow 0.10.0
+RUN conda install --quiet --yes --channel https://conda.anaconda.org/conda-forge 'tensorflow=0.10.0'
 # Keras
 RUN conda install --channel https://conda.anaconda.org/KEHANG --quiet --yes 'keras=1.0.8'
 # Use the latest version of hyperopts (python 3.5 compatibility)
@@ -95,12 +102,21 @@ RUN pip install https://github.com/hyperopt/hyperopt/archive/master.zip
 # Elephas for distributed spark
 RUN pip install elephas
 
+# Install Jupyter notebook as fourquant
+RUN conda install --quiet --yes \
+    'notebook=4.2*' \
+    && conda clean -tipsy
+
+# Install JupyterHub to get the jupyterhub-singleuser startup script
+
+RUN pip --no-cache-dir install 'jupyterhub==0.5'
+
 # Setup for standard runtime
 # Add the notebooks directory
 ADD notebooks $HOME/notebooks
 
 # Set up the kernelspec
-RUN /opt/conda/envs/python3.4-env/bin/ipython kernelspec install-self
+RUN /opt/conda/bin/ipython kernel install
 
 # Set permissions on the notebooks
 RUN chown -R fourquant:fourquant $HOME/notebooks
